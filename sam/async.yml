@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  EventBusName:
+    Type: String
+  FifoQueuePrefix:
+    Type: String
+    
+Resources:
+  ResolveItemQueue:
+    Type: AWS::SQS::Queue
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      ContentBasedDeduplication: true
+      FifoQueue: true
+      MessageRetentionPeriod: 1209600
+      QueueName: !Sub ${FifoQueuePrefix}-ResolveItemQueue.fifo
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ResolveItemDLQ.Arn
+        maxReceiveCount: 2
+      SqsManagedSseEnabled: true
+      VisibilityTimeout: 30
+
+  ResolveItemDLQ:
+    Type: AWS::SQS::Queue
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      ContentBasedDeduplication: true
+      FifoQueue: true
+      MessageRetentionPeriod: 1209600
+      QueueName: !Sub ${FifoQueuePrefix}-ResolveItemDLQ.fifo
+      SqsManagedSseEnabled: true

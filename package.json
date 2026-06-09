@@ -1,0 +1,56 @@
+{
+    "name": "pokedex-reward",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "dev": "APP_ENV=local tsx src/local.ts",
+        "build": "tsc",
+        "prebuild:layer": "mkdir -p dist/layer && cp -R layer/shared/nodejs dist/layer/nodejs",
+        "build:layer": "npm ci --omit=dev --prefix dist/layer/nodejs",
+        "deploy": "sam build && sam deploy",
+        "test": "jest",
+        "lint": "eslint .",
+        "lint:fix": "npm run lint -- --fix",
+        "prettier": "prettier --write .",
+        "prettylint": "npm run prettier && npm run lint:fix",
+        "swagger": "sh -c 'sleep 1; open http://localhost:3000/ & python3 -m http.server 3000 --directory docs'"
+    },
+    "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Diddykong57/Pokedex-reward.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+    "url": "https://github.com/Diddykong57/Pokedex-reward/issues"
+    },
+    "homepage": "https://github.com/Diddykong57/Pokedex-reward#readme",
+    "dependencies": {
+        "@aws-sdk/client-cognito-identity-provider": "^3.1054.0",
+        "@aws-sdk/client-dynamodb": "^3.1031.0",
+        "@aws-sdk/lib-dynamodb": "^3.1031.0",
+        "http-errors": "^2.0.1",
+        "joi": "^18.1.2",
+        "uuid": "^13.0.0"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.39.4",
+        "@types/aws-lambda": "^8.10.161",
+        "@types/http-errors": "^2.0.5",
+        "@types/jest": "^30.0.0",
+        "@types/node": "^25.6.0",
+        "esbuild": "^0.28.0",
+        "eslint": "^9.39.4",
+        "globals": "^16.4.0",
+        "jest": "^29.7.0",
+        "jiti": "^2.6.1",
+        "prettier": "^3.8.3",
+        "swagger-ui-dist": "^5.32.4",
+        "ts-jest": "^29.4.9",
+        "tsx": "^4.21.0",
+        "typescript": "5.8.3",
+        "typescript-eslint": "^8.58.2"
+    }
+}
