@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  Pokedex Reward
+  Reproduit les patterns clés : nested stacks, outputs, tags standardisés, layer node_modules, ResourceGroup.
+
+# -----------------------------------------------------------------------------
+# Parameters — alimentés par le Makefile via --parameter-overrides
+# -----------------------------------------------------------------------------
+Parameters:
+  ServiceName:
+    Type: String
+    Description: Pokedex Reward - API Service
+
+  Environment:
+    Type: String
+    AllowedValues: [dev, test, uat, prod]
+
+  StackSuffix:
+    Type: String
+    Description: Suffix of stack name (env or env-prId)
+
+  LoggerLevel:
+    Type: String
+    Default: debug
+    AllowedValues: [error, warn, info, debug, trace]
+
+  EventBusName:
+    Type: String
+    Default: default
+    Description: Nom de l'event bus utilise pour récupérer les events
+
+  UserPoolArn:
+    Type: String
+    Description: Cognito User Pool ARN
+
+# -----------------------------------------------------------------------------
+# Resources — nested stacks (un fichier par responsabilité)
+# -----------------------------------------------------------------------------
+Resources:
+  # Layer partagé contenant les node_modules — évite de réuploader à chaque Lambda
+  NodeModulesLayer:
+    Type: AWS::Serverless::LayerVersion
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      CompatibleRuntimes: [nodejs20.x]
+      ContentUri: ../dist/layer
+      Description: Shared node_modules layer
+      LayerName: !Sub ${AWS::StackName}-NodeModulesLayer
+
+  # Event PokedexBus dédié
+#  EventBus:
+#    Type: AWS::Events::EventBus
+#    Properties:
+#      Name: !Ref EventBusName
+
+  # Nested stack — table DynamoDB
+  DynamoApp:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./dynamo.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        ServiceName: !Ref ServiceName
+        StackSuffix: !Ref StackSuffix
+
+  # Nested stack — API Gateway + Lambdas CRUD
+  ApiApp:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./api.yml
+      Parameters:
+        ServiceName: !Ref ServiceName
+        Layer: !Ref NodeModulesLayer
+        LoggerLevel: !Ref LoggerLevel
+        UserPoolArn: !Ref UserPoolArn
+        TableName: !GetAtt DynamoApp.Outputs.TableName
+
+  #     Nested stack — Lambdas asynchrones (consumer SQS, publishers EventBridge)
+  AsyncApp:
+    Type: AWS::Serverless::Application
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Location: ./async.yml
+      Parameters:
+        #            ServiceName: !Ref ServiceName
+        Layer: !Ref NodeModulesLayer
+        LoggerLevel: !Ref LoggerLevel
+        #            TableName: !GetAtt DynamoApp.Outputs.TableName
+        EventBusName: !Ref EventBusName
+        FifoQueuePrefix: !Ref AWS::StackName
+
+  # ResourceGroup — regroupe toutes les ressources du service via tag,
+  # facilite la supervision et le nettoyage
+  ResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name: !Sub ${AWS::StackName}-resource-group
+      Description: !Sub ${AWS::StackName} Resource Group
+      ResourceQuery:
+        Type: TAG_FILTERS_1_0
+        Query:
+          ResourceTypeFilters: [AWS::AllSupported]
+          TagFilters:
+            - Key: novatraqr:cloudformation:stack-name
+              Values: [!Ref AWS::StackName]
+
+# -----------------------------------------------------------------------------
+# Outputs — exportés au format "OutputKey<TAB>OutputValue" dans le .outputs
+# Ces outputs sont consommés par les services dépendants (ex: fight)
+# via `grep -w 'Key' pokedex-<env>.outputs | cut -f2` dans leur Makefile.
+# -----------------------------------------------------------------------------
+Outputs:
+  ApiUrl:
+    Description: URL publique de l'API Gateway
+    Value: !GetAtt ApiApp.Outputs.ApiUrl
+
+  TableName:
+    Description: Nom de la table DynamoDB
+    Value: !GetAtt DynamoApp.Outputs.TableName
+
+  TableArn:
+    Description: ARN de la table DynamoDB
+    Value: !GetAtt DynamoApp.Outputs.TableArn
+
+  EventDLQ:
+    Description: URL de la DLQ des events
+    Value: !GetAtt AsyncApp.Outputs.EventDLQ

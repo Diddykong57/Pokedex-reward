@@ -1,0 +1,11 @@
+{
+    "name": "shared",
+    "private": "true",
+    "dependencies": {
+        "@aws-sdk/client-dynamodb": "^3.1031.0",
+        "@aws-sdk/lib-dynamodb": "^3.1031.0",
+        "http-errors": "^2.0.1",
+        "joi": "^18.1.2",
+        "uuid": "^13.0.0"
+    }
+}

@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  ServiceName:
+    Description: Name of the service
+    Type: String
+  Layer:
+    Description: Layer containing node_modules
+    Type: String
+    Default: ""
+  LoggerLevel:
+    Description: "the logger lever used to filter output, can be on of error,warning,info,trace"
+    Type: String
+    Default: info
+  UserPoolArn:
+    Description: User Pool ARN
+    Type: String
+  TableName:
+    Description: Dynamo Table Name
+    Type: String
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    MemorySize: 1024
+    Timeout: 30
+    Layers: !If [IsLayerEmpty, [], [!Ref Layer]] # Set default layer for all lambdas
+    # If is required here to pass a list of layers, or an empty string (not an empty list)
+    Environment:
+      Variables:
+        APP_ENV: aws
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+        LOGGER_LEVEL: !Ref LoggerLevel
+        NODE_OPTIONS: "--enable-source-maps"
+#        EVENT_BUS_NAME: !Ref EventBusName
+    Tracing: Active
+
+Conditions:
+  IsLayerEmpty: !Equals [!Ref Layer, ""]
+
+Resources:
+  PokedexRewardApi:
+    Type: AWS::Serverless::Api
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Name: !Sub "${ServiceName}-api"
+      StageName: prod
+      TracingEnabled: true
+      EndpointConfiguration:
+        Type: REGIONAL
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !Ref UserPoolArn
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          MetricsEnabled: true
+          ThrottlingRateLimit: 5
+          ThrottlingBurstLimit: 10
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Requested-With'"
+              Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,DELETE'"
+
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Requested-With'"
+              Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,DELETE'"
+
+        UNAUTHORIZED:
+          StatusCode: "401"
+          ResponseTemplates:
+            application/json: '{"message": $context.error.messageString}'
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Requested-With'"
+              Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,DELETE'"
+      Cors:
+        AllowMethods: "'OPTIONS,GET,POST,PUT,DELETE'"
+        AllowHeaders: "'Content-Type,Authorization,X-Requested-With'"
+        AllowOrigin: "'*'"
+        MaxAge: "'600'"
+
+  # Main Lambda handling Pokemon rewards handler routes
+  PokedexRewardFunction:
+    Type: AWS::Serverless::Function
+
+    Properties:
+      CodeUri: ../dist
+      Handler: lambdas/handlers/rewards/index.rewardMainHandler
+
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+
+      # IAM permissions automatically generated for DynamoDB CRUD + Event bus
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TableName
+#        - EventBridgePutEventsPolicy:
+#            EventBusName: !Ref EventBusName
+
+
+      Events:
+        # Public route: list all rewards
+        PokemonRewardGetList:
+          Type: Api
+          Properties:
+            RestApiId: !Ref PokedexRewardApi
+            Path: /rewards
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+        # Private route: create a reward
+        PokemonRewardCreate:
+          Type: Api
+          Properties:
+            RestApiId: !Ref PokedexRewardApi
+            Path: /rewards
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+Outputs:
+  ApiId:
+    Description: API ID
+    Value: !Ref PokedexRewardApi
+  ApiUrl:
+    Description: API Endpoint
+    Value: !Sub "https://${PokedexRewardApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
