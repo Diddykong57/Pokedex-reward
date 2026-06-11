@@ -28,6 +28,10 @@ Parameters:
     MinValue: 1
     MaxValue: 10
     Default: 10
+  TableName:
+    Description: Dynamo Table Name
+    Type: String
+
 
 Globals:
   Function:
@@ -53,6 +57,14 @@ Resources:
     Properties:
       CodeUri: ../dist
       Handler: lambdas/handlers/trigger/index.triggerRewardHandler
+
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TableName
 
       Events:
         TriggerEvent:

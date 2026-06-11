@@ -92,6 +92,7 @@ Resources:
         #            TableName: !GetAtt DynamoApp.Outputs.TableName
         EventBusName: !Ref EventBusName
         FifoQueuePrefix: !Ref AWS::StackName
+        TableName: !GetAtt DynamoApp.Outputs.TableName
 
   # ResourceGroup — regroupe toutes les ressources du service via tag,
   # facilite la supervision et le nettoyage
