@@ -1,7 +1,7 @@
 export const REWARD_ITEM = {
     PK_PREFIX: "USER",
     SK: "REWARD"
-}
+} as const;
 
 export const PokemonAddedRewards: Record<number, string> =  {
     1: "FIRST_POKEMON",

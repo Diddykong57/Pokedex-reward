@@ -108,9 +108,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TableName
-#        - EventBridgePutEventsPolicy:
-#            EventBusName: !Ref EventBusName
-
 
       Events:
         # Public route: list all rewards
@@ -119,6 +116,16 @@ Resources:
           Properties:
             RestApiId: !Ref PokedexRewardApi
             Path: /rewards
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+        # Public route: list all rewards
+        PokemonRewardGetDetails:
+          Type: Api
+          Properties:
+            RestApiId: !Ref PokedexRewardApi
+            Path: /rewards/{id}
             Method: get
             Auth:
               Authorizer: CognitoAuthorizer

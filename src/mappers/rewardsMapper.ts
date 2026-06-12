@@ -1,5 +1,6 @@
-import {REWARD_ITEM} from "../global/rewards/pokemonAdded";
+import {REWARD_ITEM} from "../global/constants/pokemonAdded";
 import {RewardItem} from "../repository/types/rewardItem";
+import {Reward, RewardList} from "../models/reward";
 
 export const rewardToRewardItem = (reward: Reward): RewardItem=> {
     return {
@@ -10,3 +11,8 @@ export const rewardToRewardItem = (reward: Reward): RewardItem=> {
         createdAt: reward.createdAt,
     }
 }
+
+export const toRewardFromRewardItem = (item: RewardItem): RewardList => ({
+    reward: item.entityType,
+    text: item.text,
+})
